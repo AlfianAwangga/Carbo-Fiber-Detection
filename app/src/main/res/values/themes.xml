@@ -2,7 +2,9 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.CarboFiber" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/hijau</item>
+        <item name="colorPrimaryVariant">@color/hijau_muda</item>
+        <item name="colorOnPrimary">@color/white</item>
     </style>
 
     <style name="Theme.CarboFiber" parent="Base.Theme.CarboFiber" />
