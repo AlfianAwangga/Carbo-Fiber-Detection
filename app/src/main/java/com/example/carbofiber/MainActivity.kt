@@ -1,12 +1,14 @@
 package com.example.carbofiber
 
 import android.Manifest
+import android.animation.ObjectAnimator
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
@@ -24,7 +26,6 @@ import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-
     private var imageCapture: ImageCapture? = null
     private lateinit var outputDirectory: File
     private lateinit var cameraExecutor: ExecutorService
@@ -40,92 +41,46 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // Minta izin kamera
+        // Minta izin akses kamera
         if (allPermissionsGranted()) {
             startCamera()
         } else {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
-
-        // Siapkan output direktori untuk menyimpan gambar
-        outputDirectory = getOutputDirectory()
-
+        outputDirectory = getOutputDirectory() // Direktori untuk simpan gambar
         cameraExecutor = Executors.newSingleThreadExecutor()
-
         binding.captureButton.setOnClickListener{
             takePhoto()
         }
     }
 
-    private fun takePhoto() {
-        binding.progressBar.visibility = View.VISIBLE
-        // Ambil referensi objek image capture yang stabil
-        val imageCapture = imageCapture ?: return
-
-        // Buat nama file timestamp dan MediaStore.ContentValues
-        val photoFile = File(outputDirectory, SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis()) + ".jpg")
-
-        // Buat objek output opsi yang berisi di mana gambar disimpan
-        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
-
-        // Siapkan pendengar pengambilan gambar, yang dipicu setelah foto diambil
-        imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageSavedCallback {
-            override fun onError(exc: ImageCaptureException) {
-                binding.progressBar.visibility = View.GONE
-                Log.e(TAG, "Pengambilan foto gagal: ${exc.message}", exc)
-            }
-
-            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                val savedUri = Uri.fromFile(photoFile)
-                val msg = "Foto berhasil diambil: $savedUri"
-                Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-                Log.d(TAG, msg)
-                binding.progressBar.visibility = View.GONE
-
-                //hentikan kamera ketika gambar diambil
-                stopCameraPreview()
-
-                // Tampilkan gambar dalam modal bottom sheet
-                showBottomSheet(savedUri)
-            }
-        })
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-
         cameraProviderFuture.addListener(Runnable {
-            // Digunakan untuk mengikat siklus hidup kamera ke siklus hidup pemilik
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-            // Pratinjau
+            // Menampilkan preview kamera
             val preview = Preview.Builder()
                 .build()
                 .also {
                     it.surfaceProvider = binding.viewFinder.surfaceProvider
                 }
-
             imageCapture = ImageCapture.Builder().build()
 
             // Pilih kamera belakang sebagai default
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
-                // Lepaskan pengikatan sebelum mengikat ulang
                 cameraProvider.unbindAll()
-
-                // Ikat kasus penggunaan ke kamera
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture)
-
             } catch (exc: Exception) {
-                Log.e(TAG, "Pengikatan kasus penggunaan gagal", exc)
+                Log.e(TAG, "Gagal menampilkan kamera", exc)
             }
         }, ContextCompat.getMainExecutor(this))
-    }
-
-    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun getOutputDirectory(): File {
@@ -134,6 +89,42 @@ class MainActivity : AppCompatActivity() {
         }
         return if (mediaDir != null && mediaDir.exists())
             mediaDir else filesDir
+    }
+
+    private fun takePhoto() {
+        binding.progressBar.visibility = View.VISIBLE
+
+        val imageCapture = imageCapture ?: return
+        val photoFile = File(outputDirectory, SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis()) + ".jpg")
+        val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+
+        imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageSavedCallback {
+            override fun onError(exc: ImageCaptureException) {
+                binding.progressBar.visibility = View.GONE
+                Log.e(TAG, "Pengambilan foto gagal: ${exc.message}", exc)
+            }
+
+            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                val savedUri = Uri.fromFile(photoFile)
+//                val msg = "Foto berhasil diambil: $savedUri"
+//                Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+//                Log.d(TAG, msg)
+                binding.progressBar.visibility = View.GONE
+
+                //hentikan kamera ketika gambar diambil
+                stopCameraPreview()
+                // Tampilkan gambar dalam modal bottom sheet
+                showBottomSheet(savedUri)
+            }
+        })
+    }
+
+    private fun stopCameraPreview() {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener(Runnable {
+            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
+            cameraProvider.unbindAll()
+        }, ContextCompat.getMainExecutor(this))
     }
 
     override fun onDestroy() {
@@ -153,18 +144,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun stopCameraPreview() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-        cameraProviderFuture.addListener(Runnable {
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-            cameraProvider.unbindAll() // Hentikan semua pengikatan kamera
-        }, ContextCompat.getMainExecutor(this))
-    }
-
     private fun showBottomSheet(imageUri: Uri) {
         val bottomSheetDialog = BottomSheetDialog(this)
         bottomSheetDialog.setContentView(R.layout.bottom_sheet_result)
         bottomSheetDialog.findViewById<ImageView>(R.id.captured_image)?.setImageURI(imageUri)
+        //progress bar
+        val pbKarbo = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_karbo)
+        val nilaiKarbo = 38.5 * 10
+        nilaiKarbo.setProgressBarKarbo(pbKarbo)
+        val pbSerat = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_serat)
+        val nilaiSerat = 3.8 * 10
+        nilaiSerat.setProgressBarSerat(pbSerat)
+
         bottomSheetDialog.setOnDismissListener{
             startCamera()
         }
@@ -177,5 +168,19 @@ class MainActivity : AppCompatActivity() {
         behavior.state = BottomSheetBehavior.STATE_EXPANDED
 
         bottomSheetDialog.show()
+    }
+
+    private fun Double.setProgressBarKarbo(pbKarbo: ProgressBar?) {
+        pbKarbo?.max = 1000
+        ObjectAnimator.ofInt(pbKarbo, "progress", toInt())
+            .setDuration(2000)
+            .start()
+    }
+
+    private fun Double.setProgressBarSerat(pbSerat: ProgressBar?) {
+        pbSerat?.max = 200
+        ObjectAnimator.ofInt(pbSerat, "progress", toInt())
+            .setDuration(2000)
+            .start()
     }
 }

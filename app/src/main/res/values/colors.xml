@@ -3,6 +3,7 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="hijau">#204C13</color>
+    <color name="hijau_20">#CC204C13</color>
     <color name="hijau_muda">#5CB338</color>
     <color name="hijau_muda_2">#E7FFE7</color>
 </resources>
