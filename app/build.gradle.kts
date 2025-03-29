@@ -44,21 +44,18 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+
     //CAMERAX
-    // Core library for CameraX
     implementation (libs.androidx.camera.core)
-
-    // CameraX Camera2 interop library
     implementation (libs.androidx.camera.camera2)
-
-    // CameraX Lifecycle library
     implementation (libs.androidx.camera.lifecycle)
-
-    // CameraX View library for PreviewView
     implementation (libs.androidx.camera.view)
-
-    // CameraX Extensions (Optional: for HDR, Night Mode, etc.)
     implementation (libs.camera.extensions)
+    //TF LITE
+    implementation(libs.tensorflow.lite)
+    implementation(libs.tensorflow.lite.gpu)
+    implementation(libs.tensorflow.lite.support)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

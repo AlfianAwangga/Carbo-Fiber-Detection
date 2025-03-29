@@ -6,4 +6,9 @@
     <color name="hijau_20">#CC204C13</color>
     <color name="hijau_muda">#5CB338</color>
     <color name="hijau_muda_2">#E7FFE7</color>
+    <color name="kuning">#FFEB00</color>
+    <color name="kuning_muda">#FFF0BD</color>
+    <color name="oranye">#E28936</color>
+    <color name="merah">#E52020</color>
+    <color name="merah_muda">#FFEDFA</color>
 </resources>

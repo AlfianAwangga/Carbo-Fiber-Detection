@@ -3,12 +3,14 @@ package com.example.carbofiber
 import android.Manifest
 import android.animation.ObjectAnimator
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.ProgressBar
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
@@ -18,6 +20,7 @@ import androidx.core.content.ContextCompat
 import com.example.carbofiber.databinding.ActivityMainBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.chip.Chip
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -29,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private var imageCapture: ImageCapture? = null
     private lateinit var outputDirectory: File
     private lateinit var cameraExecutor: ExecutorService
+    private lateinit var objectDetector: ObjectDetector
 
     companion object {
         private const val TAG = "CameraXBasic"
@@ -49,6 +53,7 @@ class MainActivity : AppCompatActivity() {
         }
         outputDirectory = getOutputDirectory() // Direktori untuk simpan gambar
         cameraExecutor = Executors.newSingleThreadExecutor()
+        objectDetector = ObjectDetector(this, "model_mobilenet.tflite")
         binding.captureButton.setOnClickListener{
             takePhoto()
         }
@@ -113,8 +118,12 @@ class MainActivity : AppCompatActivity() {
 
                 //hentikan kamera ketika gambar diambil
                 stopCameraPreview()
+
+                val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                val detectionResult = objectDetector.recognizeImage(bitmap)
+
                 // Tampilkan gambar dalam modal bottom sheet
-                showBottomSheet(savedUri)
+                showBottomSheet(savedUri, detectionResult)
             }
         })
     }
@@ -144,10 +153,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showBottomSheet(imageUri: Uri) {
+    private fun showBottomSheet(imageUri: Uri, detectionResult: Pair<String, Float>) {
         val bottomSheetDialog = BottomSheetDialog(this)
+
         bottomSheetDialog.setContentView(R.layout.bottom_sheet_result)
         bottomSheetDialog.findViewById<ImageView>(R.id.captured_image)?.setImageURI(imageUri)
+
+        val label = detectionResult.first
+        bottomSheetDialog.findViewById<TextView>(R.id.tv_nama_objek)!!.text = label
+
+        val probability = detectionResult.second
+        val chipAkurasi = bottomSheetDialog.findViewById<Chip>(R.id.chip_akurasi)
+        AdjustChipAkurasi(chipAkurasi, probability)
+
         //progress bar
         val pbKarbo = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_karbo)
         val nilaiKarbo = 38.5 * 10
@@ -170,15 +188,55 @@ class MainActivity : AppCompatActivity() {
         bottomSheetDialog.show()
     }
 
+    private fun AdjustChipAkurasi(chipAkurasi: Chip?, probability: Float) {
+        val formattedProbability = String.format("%.1f", probability * 100)
+        if (probability >= 0.7) {
+            chipAkurasi?.text = "Kecocokan : $formattedProbability%"
+            chipAkurasi?.setChipBackgroundColorResource(R.color.hijau_muda_2)
+            chipAkurasi?.setChipStrokeColorResource(R.color.hijau_muda)
+            chipAkurasi?.setTextColor(ContextCompat.getColor(this, R.color.hijau_muda))
+        } else if (probability >= 0.5 && probability < 0.7){
+            chipAkurasi?.text = "Kecocokan : $formattedProbability%"
+            chipAkurasi?.setChipBackgroundColorResource(R.color.kuning_muda)
+            chipAkurasi?.setChipStrokeColorResource(R.color.oranye)
+            chipAkurasi?.setTextColor(ContextCompat.getColor(this, R.color.oranye))
+        } else {
+            chipAkurasi?.text = "Kecocokan : $formattedProbability%"
+            chipAkurasi?.setChipBackgroundColorResource(R.color.merah_muda)
+            chipAkurasi?.setChipStrokeColorResource(R.color.merah)
+            chipAkurasi?.setTextColor(ContextCompat.getColor(this, R.color.merah))
+        }
+    }
+
     private fun Double.setProgressBarKarbo(pbKarbo: ProgressBar?) {
-        pbKarbo?.max = 1000
+        val max = 1000
+        pbKarbo?.max = max
+
+        if (toInt() / max >= 0.8) {
+            pbKarbo?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_green)
+        } else if (toInt() / max >= 0.5 && toInt() / max < 0.8){
+            pbKarbo?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_yellow)
+        } else {
+            pbKarbo?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_red)
+        }
+
         ObjectAnimator.ofInt(pbKarbo, "progress", toInt())
             .setDuration(2000)
             .start()
     }
 
     private fun Double.setProgressBarSerat(pbSerat: ProgressBar?) {
-        pbSerat?.max = 200
+        val max = 200
+        pbSerat?.max = max
+
+        if (toInt() / max >= 0.8) {
+            pbSerat?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_green)
+        } else if (toInt() / max >= 0.5 && toInt() / max < 0.8){
+            pbSerat?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_yellow)
+        } else {
+            pbSerat?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_red)
+        }
+
         ObjectAnimator.ofInt(pbSerat, "progress", toInt())
             .setDuration(2000)
             .start()
