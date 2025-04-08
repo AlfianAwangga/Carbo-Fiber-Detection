@@ -12,6 +12,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -37,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private var imageCapture: ImageCapture? = null
     private lateinit var outputDirectory: File
     private lateinit var cameraExecutor: ExecutorService
+    private var loadingDialog: AlertDialog? = null
     private lateinit var objectDetector: ObjectDetector
     private lateinit var database: DatabaseReference
 
@@ -68,6 +70,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            if (allPermissionsGranted()) {
+                startCamera()
+            } else {
+                Toast.makeText(this, "Izin tidak diberikan oleh pengguna.", Toast.LENGTH_SHORT).show()
+                finish()
+            }
+        }
     }
 
     private fun startCamera() {
@@ -105,6 +119,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun takePhoto() {
         binding.progressBar.visibility = View.VISIBLE
+        showLoadingDialog()
 
         val imageCapture = imageCapture ?: return
         val photoFile = File(outputDirectory, SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis()) + ".jpg")
@@ -113,6 +128,7 @@ class MainActivity : AppCompatActivity() {
         imageCapture.takePicture(outputOptions, ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageSavedCallback {
             override fun onError(exc: ImageCaptureException) {
                 binding.progressBar.visibility = View.GONE
+                dismissLoadingDialog()
                 Log.e(TAG, "Pengambilan foto gagal: ${exc.message}", exc)
             }
 
@@ -122,6 +138,7 @@ class MainActivity : AppCompatActivity() {
 //                Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
 //                Log.d(TAG, msg)
                 binding.progressBar.visibility = View.GONE
+                dismissLoadingDialog()
 
                 //hentikan kamera ketika gambar diambil
                 stopCameraPreview()
@@ -133,6 +150,21 @@ class MainActivity : AppCompatActivity() {
                 showBottomSheet(savedUri, detectionResult)
             }
         })
+    }
+
+    private fun showLoadingDialog() {
+        val builder = AlertDialog.Builder(this)
+            .setMessage("Sedang Memproses Gambar...")
+            .setCancelable(false)
+            .create()
+        builder.show()
+
+        loadingDialog = builder
+    }
+
+    private fun dismissLoadingDialog() {
+        loadingDialog?.dismiss()
+        loadingDialog = null
     }
 
     private fun stopCameraPreview() {
@@ -148,18 +180,6 @@ class MainActivity : AppCompatActivity() {
         cameraExecutor.shutdown()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE_PERMISSIONS) {
-            if (allPermissionsGranted()) {
-                startCamera()
-            } else {
-                Toast.makeText(this, "Izin tidak diberikan oleh pengguna.", Toast.LENGTH_SHORT).show()
-                finish()
-            }
-        }
-    }
-
     private fun showBottomSheet(imageUri: Uri, detectionResult: Pair<String, Float>) {
         val bottomSheetDialog = BottomSheetDialog(this)
 
@@ -171,14 +191,14 @@ class MainActivity : AppCompatActivity() {
         val label = detectionResult.first
         bottomSheetDialog.findViewById<TextView>(R.id.tv_nama_objek)!!.text = label
 
-        //menampilkan nilai karbo dan serat berdasarkan label hasil deteksi
-        val labelRef = database.child(label)
-        setUpDataByLabel(labelRef, bottomSheetDialog)
-
         //menampilkan akurasi
         val probability = detectionResult.second
         val chipAkurasi = bottomSheetDialog.findViewById<Chip>(R.id.chip_akurasi)
         AdjustAkurasi(chipAkurasi, probability)
+
+        //menampilkan nilai karbo dan serat berdasarkan label hasil deteksi
+        val labelRef = database.child(label)
+        setUpDataByLabel(labelRef, bottomSheetDialog)
 
         bottomSheetDialog.setOnDismissListener{
             startCamera()
@@ -204,14 +224,14 @@ class MainActivity : AppCompatActivity() {
 
                 val nilaiKarbo = snapshot.child("karbo").getValue(Double::class.java)
                 val tvKarbo = bottomSheetDialog.findViewById<TextView>(R.id.tv_nilai_karbo)
-                tvKarbo?.text = nilaiKarbo.toString()
+                tvKarbo?.text = "$nilaiKarbo gram"
                 val pbKarbo = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_karbo)
                 val nilaiPbKarbo = nilaiKarbo?.times(10)
                 setProgressBarKarbo(pbKarbo, nilaiPbKarbo)
 
                 val nilaiSerat = snapshot.child("serat").getValue(Double::class.java)
                 val tvSerat = bottomSheetDialog.findViewById<TextView>(R.id.tv_nilai_serat)
-                tvSerat?.text = nilaiSerat.toString()
+                tvSerat?.text = "$nilaiSerat gram"
                 val pbSerat = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_serat)
                 val nilaiPbSerat = nilaiSerat?.times(100)
                 setProgressBarSerat(pbSerat, nilaiPbSerat)
