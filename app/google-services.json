@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "987049566675",
+    "project_id": "carbo-fiber",
+    "storage_bucket": "carbo-fiber.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:987049566675:android:6f21f86382a4c384fa8f26",
+        "android_client_info": {
+          "package_name": "com.example.carbofiber"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCLXpYNJ8MdIzzT8tmUX9z2rSgvCNSFA4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

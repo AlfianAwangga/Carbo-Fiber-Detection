@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.example.carbofiber" />
+                  <option name="mobileSdkAppId" value="1:987049566675:android:6f21f86382a4c384fa8f26" />
+                  <option name="projectId" value="carbo-fiber" />
+                  <option name="projectNumber" value="987049566675" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
