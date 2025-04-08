@@ -3,7 +3,7 @@ agp = "8.6.0"
 cameraCore = "1.4.2"
 cameraExtensions = "1.4.2"
 firebaseBom = "33.12.0"
-kotlin = "1.9.24"
+kotlin = "2.1.0"
 coreKtx = "1.15.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -15,6 +15,7 @@ constraintlayout = "2.2.1"
 tensorflowLite = "2.5.0"
 tensorflowLiteGpu = "2.5.0"
 tensorflowLiteSupport = "0.1.0"
+firebaseDatabaseKtx = "21.0.0"
 
 [libraries]
 firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
@@ -35,6 +36,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+firebase-database-ktx = { group = "com.google.firebase", name = "firebase-database-ktx", version.ref = "firebaseDatabaseKtx" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

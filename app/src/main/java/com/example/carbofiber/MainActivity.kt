@@ -21,6 +21,11 @@ import com.example.carbofiber.databinding.ActivityMainBinding
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.chip.Chip
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -33,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var outputDirectory: File
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var objectDetector: ObjectDetector
+    private lateinit var database: DatabaseReference
 
     companion object {
         private const val TAG = "CameraXBasic"
@@ -54,6 +60,7 @@ class MainActivity : AppCompatActivity() {
         outputDirectory = getOutputDirectory() // Direktori untuk simpan gambar
         cameraExecutor = Executors.newSingleThreadExecutor()
         objectDetector = ObjectDetector(this, "model_mobilenet.tflite")
+        database = FirebaseDatabase.getInstance().getReference("plants")
         binding.captureButton.setOnClickListener{
             takePhoto()
         }
@@ -156,23 +163,22 @@ class MainActivity : AppCompatActivity() {
     private fun showBottomSheet(imageUri: Uri, detectionResult: Pair<String, Float>) {
         val bottomSheetDialog = BottomSheetDialog(this)
 
+        //menampilkan gambar tangkapan kamera
         bottomSheetDialog.setContentView(R.layout.bottom_sheet_result)
         bottomSheetDialog.findViewById<ImageView>(R.id.captured_image)?.setImageURI(imageUri)
 
+        //menampilkan nama objek yang terdeteksi
         val label = detectionResult.first
         bottomSheetDialog.findViewById<TextView>(R.id.tv_nama_objek)!!.text = label
 
+        //menampilkan nilai karbo dan serat berdasarkan label hasil deteksi
+        val labelRef = database.child(label)
+        setUpDataByLabel(labelRef, bottomSheetDialog)
+
+        //menampilkan akurasi
         val probability = detectionResult.second
         val chipAkurasi = bottomSheetDialog.findViewById<Chip>(R.id.chip_akurasi)
-        AdjustChipAkurasi(chipAkurasi, probability)
-
-        //progress bar
-        val pbKarbo = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_karbo)
-        val nilaiKarbo = 38.5 * 10
-        nilaiKarbo.setProgressBarKarbo(pbKarbo)
-        val pbSerat = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_serat)
-        val nilaiSerat = 3.8 * 10
-        nilaiSerat.setProgressBarSerat(pbSerat)
+        AdjustAkurasi(chipAkurasi, probability)
 
         bottomSheetDialog.setOnDismissListener{
             startCamera()
@@ -188,7 +194,41 @@ class MainActivity : AppCompatActivity() {
         bottomSheetDialog.show()
     }
 
-    private fun AdjustChipAkurasi(chipAkurasi: Chip?, probability: Float) {
+    private fun setUpDataByLabel(labelRef: DatabaseReference, bottomSheetDialog: BottomSheetDialog) {
+        labelRef.addValueEventListener(object: ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val kategori = snapshot.child("kategori").getValue(String::class.java)
+                val chipKategori = bottomSheetDialog.findViewById<Chip>(R.id.chip_kelas)
+                chipKategori?.text = kategori
+                AdjustChipKategori(chipKategori, kategori)
+
+                val nilaiKarbo = snapshot.child("karbo").getValue(Double::class.java)
+                val tvKarbo = bottomSheetDialog.findViewById<TextView>(R.id.tv_nilai_karbo)
+                tvKarbo?.text = nilaiKarbo.toString()
+                val pbKarbo = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_karbo)
+                val nilaiPbKarbo = nilaiKarbo?.times(10)
+                setProgressBarKarbo(pbKarbo, nilaiPbKarbo)
+
+                val nilaiSerat = snapshot.child("serat").getValue(Double::class.java)
+                val tvSerat = bottomSheetDialog.findViewById<TextView>(R.id.tv_nilai_serat)
+                tvSerat?.text = nilaiSerat.toString()
+                val pbSerat = bottomSheetDialog.findViewById<ProgressBar>(R.id.pb_serat)
+                val nilaiPbSerat = nilaiSerat?.times(100)
+                setProgressBarSerat(pbSerat, nilaiPbSerat)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Gagal memuat data: ${error.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+
+        })
+    }
+
+    private fun AdjustAkurasi(chipAkurasi: Chip?, probability: Float) {
         val formattedProbability = String.format("%.1f", probability * 100)
         if (probability >= 0.7) {
             chipAkurasi?.text = "Kecocokan : $formattedProbability%"
@@ -207,37 +247,45 @@ class MainActivity : AppCompatActivity() {
             chipAkurasi?.setTextColor(ContextCompat.getColor(this, R.color.merah))
         }
     }
+    
+    private fun AdjustChipKategori(chipKategori: Chip?, kategori: String?) {
+        if (kategori == "Tinggi Serat" || kategori == "Tinggi Karbohidrat" || kategori == "Tinggi Karbohidrat dan Serat") {
+            chipKategori?.setChipBackgroundColorResource(R.color.hijau_muda_2)
+            chipKategori?.setChipStrokeColorResource(R.color.hijau_muda)
+            chipKategori?.setTextColor(ContextCompat.getColor(this, R.color.hijau_muda))
+        } else {
+            chipKategori?.setChipBackgroundColorResource(R.color.merah_muda)
+            chipKategori?.setChipStrokeColorResource(R.color.merah)
+            chipKategori?.setTextColor(ContextCompat.getColor(this, R.color.merah))
+        }
+    }
 
-    private fun Double.setProgressBarKarbo(pbKarbo: ProgressBar?) {
-        val max = 1000
+    private fun setProgressBarKarbo(pbKarbo: ProgressBar?, value: Double?) {
+        val max = 370
         pbKarbo?.max = max
 
-        if (toInt() / max >= 0.8) {
-            pbKarbo?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_green)
-        } else if (toInt() / max >= 0.5 && toInt() / max < 0.8){
-            pbKarbo?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_yellow)
+        if (value!! / max >= 0.5) {
+            pbKarbo!!.progressDrawable = ContextCompat.getDrawable(this, R.drawable.layer_green)
         } else {
-            pbKarbo?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_red)
+            pbKarbo!!.progressDrawable = ContextCompat.getDrawable(this, R.drawable.layer_red)
         }
 
-        ObjectAnimator.ofInt(pbKarbo, "progress", toInt())
+        ObjectAnimator.ofInt(pbKarbo, "progress", value.toInt())
             .setDuration(2000)
             .start()
     }
 
-    private fun Double.setProgressBarSerat(pbSerat: ProgressBar?) {
-        val max = 200
+    private fun setProgressBarSerat(pbSerat: ProgressBar?, value: Double?) {
+        val max = 360
         pbSerat?.max = max
 
-        if (toInt() / max >= 0.8) {
-            pbSerat?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_green)
-        } else if (toInt() / max >= 0.5 && toInt() / max < 0.8){
-            pbSerat?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_yellow)
+        if (value!! / max >= 0.5) {
+            pbSerat!!.progressDrawable = ContextCompat.getDrawable(this, R.drawable.layer_green)
         } else {
-            pbSerat?.progressDrawable = ContextCompat.getDrawable(this@MainActivity, R.drawable.layer_red)
+            pbSerat!!.progressDrawable = ContextCompat.getDrawable(this, R.drawable.layer_red)
         }
 
-        ObjectAnimator.ofInt(pbSerat, "progress", toInt())
+        ObjectAnimator.ofInt(pbSerat, "progress", value.toInt())
             .setDuration(2000)
             .start()
     }
