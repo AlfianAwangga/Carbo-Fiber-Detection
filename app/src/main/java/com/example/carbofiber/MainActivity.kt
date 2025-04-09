@@ -146,8 +146,12 @@ class MainActivity : AppCompatActivity() {
                 val bitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
                 val detectionResult = objectDetector.recognizeImage(bitmap)
 
-                // Tampilkan gambar dalam modal bottom sheet
-                showBottomSheet(savedUri, detectionResult)
+                if (detectionResult.second >= 0.7) {
+                    // Tampilkan gambar dalam modal bottom sheet
+                    showBottomSheet(savedUri, detectionResult)
+                } else {
+                    showErrorAkurasiDialog()
+                }
             }
         })
     }
@@ -178,6 +182,21 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+    }
+
+    private fun showErrorAkurasiDialog() {
+        val builder = AlertDialog.Builder(this)
+        builder.apply {
+            setCancelable(false)
+            setTitle("Akurasi Rendah")
+            setMessage("Tidak dapat mengenali gambar \nCoba Ambil Gambar Lagi")
+            setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+                startCamera()
+            }
+            create()
+            show()
+        }
     }
 
     private fun showBottomSheet(imageUri: Uri, detectionResult: Pair<String, Float>) {
@@ -250,21 +269,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun AdjustAkurasi(chipAkurasi: Chip?, probability: Float) {
         val formattedProbability = String.format("%.1f", probability * 100)
-        if (probability >= 0.7) {
+        if (probability >= 0.8) {
             chipAkurasi?.text = "Kecocokan : $formattedProbability%"
             chipAkurasi?.setChipBackgroundColorResource(R.color.hijau_muda_2)
             chipAkurasi?.setChipStrokeColorResource(R.color.hijau_muda)
             chipAkurasi?.setTextColor(ContextCompat.getColor(this, R.color.hijau_muda))
-        } else if (probability >= 0.5 && probability < 0.7){
+        } else if (probability >= 0.7 && probability < 0.8){
             chipAkurasi?.text = "Kecocokan : $formattedProbability%"
             chipAkurasi?.setChipBackgroundColorResource(R.color.kuning_muda)
             chipAkurasi?.setChipStrokeColorResource(R.color.oranye)
             chipAkurasi?.setTextColor(ContextCompat.getColor(this, R.color.oranye))
-        } else {
-            chipAkurasi?.text = "Kecocokan : $formattedProbability%"
-            chipAkurasi?.setChipBackgroundColorResource(R.color.merah_muda)
-            chipAkurasi?.setChipStrokeColorResource(R.color.merah)
-            chipAkurasi?.setTextColor(ContextCompat.getColor(this, R.color.merah))
         }
     }
     
